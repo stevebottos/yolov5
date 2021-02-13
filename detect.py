@@ -5,6 +5,7 @@ from pathlib import Path
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
+import numpy as np
 from numpy import random
 
 from models.experimental import attempt_load
@@ -59,6 +60,7 @@ def detect(save_img=False):
     # Run inference
     if device.type != 'cpu':
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
+
     t0 = time.time()
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
@@ -71,8 +73,35 @@ def detect(save_img=False):
         t1 = time_synchronized()
         pred = model(img, augment=opt.augment)[0]
 
+
+
+
+
+
+
+
         # Apply NMS
+        print(names)
+        num = 1
+        for p in pred[0]:
+            p = p.cpu().numpy()
+            obj_conf = p[4]
+            coords = p[:5]
+            class_confs = p[5:]
+            if obj_conf*np.max(class_confs) > 0.45:
+                print(num, np.argmax(class_confs), obj_conf*np.max(class_confs), coords)
+                num += 1
+
+        print(opt.conf_thres, opt.iou_thres)
+
+
+
+
+        st = time.time()
         pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+        print(f"NMS TIME {time.time() - st}")
+        exit()
+
         t2 = time_synchronized()
 
         # Apply Classifier
@@ -81,6 +110,8 @@ def detect(save_img=False):
 
         # Process detections
         for i, det in enumerate(pred):  # detections per image
+            print("\n\nDETECTIONS")
+            print(i, len(det))
             if webcam:  # batch_size >= 1
                 p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
             else:
